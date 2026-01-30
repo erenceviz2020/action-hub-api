@@ -95,16 +95,18 @@ def ingest_youtube(payload: YouTubeIngestRequest):
         # --no-playlist: playlist olmasın
         # -x: audio extract
         # --audio-format mp3: mp3'e dönüştür (ffmpeg ile)
-        cmd = [
-            "yt-dlp",
-            "--no-playlist",
-            "-x",
-            "--audio-format",
-            "mp3",
-            "-o",
-            outtmpl,
-            url,
-        ]
+       cmd = [
+    "yt-dlp",
+    "--js-runtime",
+    "node",
+    "--no-playlist",
+    "-x",
+    "--audio-format",
+    "mp3",
+    "-o",
+    outtmpl,
+    url,
+    ]
 
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
