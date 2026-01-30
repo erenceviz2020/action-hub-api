@@ -86,27 +86,22 @@ def ingest_youtube(payload: YouTubeIngestRequest):
     if not YOUTUBE_URL_RE.match(url):
         raise HTTPException(status_code=400, detail="only youtube URLs are supported")
 
-    # Çıktı dosyalarını temp klasörde tutuyoruz
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         outtmpl = str(tmp / "audio.%(ext)s")
 
-        # 1) yt-dlp ile en iyi audio'yu indir
-        # --no-playlist: playlist olmasın
-        # -x: audio extract
-        # --audio-format mp3: mp3'e dönüştür (ffmpeg ile)
-       cmd = [
-    "yt-dlp",
-    "--js-runtimes",
-    "node",
-    "--no-playlist",
-    "-x",
-    "--audio-format",
-    "mp3",
-    "-o",
-    outtmpl,
-    url,
-]
+        cmd = [
+            "yt-dlp",
+            "--js-runtimes",
+            "node",
+            "--no-playlist",
+            "-x",
+            "--audio-format",
+            "mp3",
+            "-o",
+            outtmpl,
+            url,
+        ]
 
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -114,21 +109,19 @@ def ingest_youtube(payload: YouTubeIngestRequest):
             raise HTTPException(status_code=504, detail="download timed out (over 10 minutes)")
 
         if r.returncode != 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"yt-dlp failed: {r.stderr[-800:] if r.stderr else r.stdout[-800:]}",
-            )
+            err = (r.stderr or r.stdout or "")[-1200:]
+            raise HTTPException(status_code=400, detail=f"yt-dlp failed: {err}")
 
-        # İndirilen mp3'ü bul
         mp3_files = list(tmp.glob("audio*.mp3"))
         if not mp3_files:
-            # bazı durumlarda ext farklı olabilir, ne varsa bul
             any_files = list(tmp.glob("audio.*"))
-            raise HTTPException(status_code=500, detail=f"audio file not found. found={ [f.name for f in any_files] }")
+            raise HTTPException(
+                status_code=500,
+                detail=f"audio file not found. found={ [f.name for f in any_files] }",
+            )
 
         audio_path = mp3_files[0]
 
-        # 2) OpenAI transcribe (file handle ile)
         try:
             with open(audio_path, "rb") as f:
                 kwargs = {}
@@ -149,6 +142,5 @@ def ingest_youtube(payload: YouTubeIngestRequest):
                 "audio_bytes": audio_path.stat().st_size,
                 "text": text,
             }
-
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"transcription failed: {e}")
