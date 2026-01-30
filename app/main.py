@@ -13,7 +13,3 @@ def healthz():
     return {"status": "ok"}
 
 
-@app.get("/debug/openai")
-def debug_openai():
-    models = client.models.list()
-    return {"ok": True, "model_count": len(models.data)}
